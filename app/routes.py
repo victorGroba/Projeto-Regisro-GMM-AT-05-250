@@ -7,6 +7,8 @@ import pandas as pd
 import io
 from weasyprint import HTML
 from datetime import datetime
+from collections import defaultdict
+
 
 bp = Blueprint('main', __name__)
 
@@ -62,28 +64,31 @@ def cadastrar():
 
 
 
+from collections import defaultdict
+
 @bp.route('/historico/<int:id>')
 @login_requerido
 def historico(id):
     termometro = Termometro.query.get_or_404(id)
     verificacoes = Verificacao.query.filter_by(termometro_id=termometro.id).all()
-    return render_template('historico.html', termometro=termometro, verificacoes=verificacoes)
 
-@bp.route('/historico/<int:id>/pdf')
-@login_requerido
-def historico_pdf(id):
-    termometro = Termometro.query.get_or_404(id)
-    data_atual = datetime.now()
-    mes = data_atual.strftime("%m")
-    ano = data_atual.strftime("%Y")
-    
-    html_content = render_template('historico.html', termometro=termometro, mes=mes, ano=ano)
-    pdf = HTML(string=html_content).write_pdf()
-    
-    response = Response(pdf, mimetype='application/pdf')
-    response.headers['Content-Disposition'] = f'inline; filename=historico_{termometro.id}.pdf'
-    
-    return response
+    # Agrupa por mês e dia (dia como inteiro) para caber no template
+    agrupado = defaultdict(dict)
+    for v in verificacoes:
+        data_sp = v.get_data_hora_sp()
+        mes_ano = data_sp.strftime('%m/%Y')  # chave do mês
+        dia = data_sp.day                     # dia como inteiro
+        if mes_ano not in agrupado:
+            agrupado[mes_ano] = {}
+        agrupado[mes_ano][dia] = v
+
+    return render_template(
+        'historico.html',
+        termometro=termometro,
+        historico_mensal=agrupado
+    )
+
+
 
 @bp.route('/exportar_excel/<int:id>')
 @login_requerido
