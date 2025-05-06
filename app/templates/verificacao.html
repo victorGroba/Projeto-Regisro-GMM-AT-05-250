@@ -1,0 +1,36 @@
+{% extends 'layout.html' %}
+{% block title %}Verificação Diária{% endblock %}
+
+{% block content %}
+<h2>Verificação Diária - {{ termometro.identificacao }}</h2>
+<form method="post">
+    <label>Responsável:</label>
+    <input type="text" name="responsavel" required><br>
+
+    <label>Temperatura Atual:</label>
+    <input type="number" step="0.1" name="temperatura_atual" required><br>
+
+    <label>Temperatura Máxima:</label>
+    <input type="number" step="0.1" name="temperatura_max"><br>
+
+    <label>Temperatura Mínima:</label>
+    <input type="number" step="0.1" name="temperatura_min"><br>
+
+    <label>Observação:</label>
+    <select name="observacao">
+        <option value="">-- Selecione --</option>
+        <option value="A. Descongelamento/Limpeza">A. Descongelamento/Limpeza</option>
+        <option value="B. Verificação Vedação">B. Verificação Vedação</option>
+        <option value="C. Verificação Validade de Insumos">C. Verificação Validade de Insumos</option>
+        <option value="D. Solicitação Manutenção Corretiva">D. Solicitação Manutenção Corretiva</option>
+        <option value="E. Interrupção Energia Elétrica">E. Interrupção Energia Elétrica</option>
+        <option value="F. Regulagem do termostato">F. Regulagem do termostato</option>
+        <option value="G. Porta muito tempo aberta">G. Porta muito tempo aberta</option>
+        <option value="H. Limpeza após contaminação">H. Limpeza após contaminação</option>
+        <option value="I. Outros">I. Outros</option>
+    </select>
+    <input type="text" name="observacao_custom" placeholder="(Se outros)"><br>
+
+    <button type="submit">Registrar</button>
+</form>
+{% endblock %}

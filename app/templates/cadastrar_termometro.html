@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h4>{{ 'Editar Termômetro' if editar else 'Cadastrar Termômetro' }}</h4>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+    
+    <div class="mb-3">
+        {{ form.setor.label }}
+        {{ form.setor(class="form-control") }}
+    </div>
+
+    <div class="mb-3">
+        {{ form.equipamento.label }}
+        {{ form.equipamento(class="form-control") }}
+    </div>
+
+    <div class="mb-3">
+        {{ form.especificacao.label }}
+        {{ form.especificacao(class="form-control") }}
+    </div>
+
+    <div class="mb-3">
+        {{ form.identificacao.label }}
+        {{ form.identificacao(class="form-control") }}
+    </div>
+
+    <div class="mb-3">
+        {{ form.padrao_identificacao.label }}
+        {{ form.padrao_identificacao(class="form-control") }}
+    </div>
+
+    <div class="mb-3 text-end">
+        <button type="submit" class="btn btn-primary">
+            {{ 'Salvar Alterações' if editar else 'Cadastrar' }}
+        </button>
+    </div>
+</form>
+{% endblock %}

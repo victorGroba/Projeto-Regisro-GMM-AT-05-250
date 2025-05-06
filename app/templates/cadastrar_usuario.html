@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Cadastrar Usuário</h4>
+<form method="POST">
+    {{ form.hidden_tag() }}
+    {{ form.username.label }} {{ form.username(class="form-control") }}
+    {{ form.senha.label }} {{ form.senha(class="form-control") }}
+    {{ form.is_admin.label }} {{ form.is_admin(class="form-check-input") }}
+    <br>
+    {{ form.submit(class="btn btn-primary") }}
+</form>
+{% endblock %}

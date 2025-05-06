@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Registrar Temperatura Atual - {{ termometro.identificacao }}</h4>
+<form method="POST">
+    {{ form.hidden_tag() }}
+
+    <div class="mb-3">
+        {{ form.temperatura_atual.label(class="form-label") }}
+        {{ form.temperatura_atual(class="form-control") }}
+    </div>
+
+    <div class="mb-3">
+        {{ form.responsavel.label(class="form-label") }}
+        {{ form.responsavel(class="form-control") }}
+    </div>
+
+    <div class="mb-3">
+        {{ form.observacao.label(class="form-label") }}
+        {{ form.observacao(class="form-control") }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Registrar Temperatura Atual</button>
+</form>
+{% endblock %}

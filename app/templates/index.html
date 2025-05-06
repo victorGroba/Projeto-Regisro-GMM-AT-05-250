@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <a href="{{ url_for('main.cadastrar') }}" class="btn btn-primary">Cadastrar Novo Termômetro</a>
+
+    {% if session.get('is_admin') %}
+    <a href="{{ url_for('main.exportar_planilha_geral') }}" class="btn btn-outline-secondary">
+        📊 Exportar Planilha Completa
+    </a>
+    {% endif %}
+
+    <form method="GET" class="d-flex align-items-center gap-2 flex-wrap">
+    <label for="setor" class="form-label mb-0">Filtrar por setor:</label>
+    <select name="setor" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for setor in setores %}
+        <option value="{{ setor }}" {% if setor == setor_filtro %}selected{% endif %}>{{ setor }}</option>
+        {% endfor %}
+    </select>
+
+    <input type="text" name="q" class="form-control form-control-sm w-auto"
+           placeholder="Buscar por identificação ou equipamento"
+           value="{{ termo_busca or '' }}">
+
+    <button type="submit" class="btn btn-sm btn-primary">🔍 Buscar</button>
+</form>
+
+    
+</div>
+
+
+
+
+
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Setor</th>
+            <th>Equipamento</th>
+            <th>Identificação</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for termo in termometros %}
+        <tr>
+            <td>{{ termo.setor }}</td>
+            <td>{{ termo.equipamento }}</td>
+            <td>{{ termo.identificacao }}</td>
+            <td>
+                <a href="{{ url_for('main.verificar', id=termo.id) }}" class="btn btn-sm btn-success">Verificar</a>
+                <a href="{{ url_for('main.historico', id=termo.id) }}" class="btn btn-sm btn-info">Histórico</a>
+                <a href="{{ url_for('main.gerar_qr', id=termo.id) }}" class="btn btn-sm btn-dark" target="_blank">
+                    📷 QR
+                </a>
+                
+                
+
+                {% if session.get('is_admin') %}
+                <a href="{{ url_for('main.editar_termometro', id=termo.id) }}" class="btn btn-sm btn-warning">Editar</a>
+                <form method="POST" action="{{ url_for('main.excluir_termometro', id=termo.id) }}"
+                    style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-danger mt-2"
+                        onclick="return confirm('Tem certeza que deseja excluir este termômetro?')">
+                        Excluir Termômetro
+                    </button>
+                </form>
+                {% endif %}
+
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

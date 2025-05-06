@@ -1,0 +1,27 @@
+{% extends 'layout.html' %}
+{% block title %}Checagem Intermediária{% endblock %}
+
+{% block content %}
+<h2>Checagem - {{ termometro.identificacao }}</h2>
+<form method="post">
+    <label>Erro Padrão (°C):</label>
+    <input type="number" step="0.01" name="erro_padrao"><br>
+
+    <label>Incerteza Padrão (°C):</label>
+    <input type="number" step="0.01" name="incerteza_padrao"><br>
+
+    <label>Erro Tuso (°C):</label>
+    <input type="number" step="0.01" name="erro_tuso"><br>
+
+    <label>Incerteza Tuso (°C):</label>
+    <input type="number" step="0.01" name="incerteza_tuso"><br>
+
+    <label>Conferido por:</label>
+    <input type="text" name="conferido_por"><br>
+
+    <label>Observações:</label>
+    <textarea name="observacao"></textarea><br>
+
+    <button type="submit">Registrar Checagem</button>
+</form>
+{% endblock %}
