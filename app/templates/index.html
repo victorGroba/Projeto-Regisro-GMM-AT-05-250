@@ -33,6 +33,11 @@
 
 
 
+<div class="mb-3 small text-muted d-flex align-items-center gap-3 flex-wrap">
+    <div><span style="font-size: 1.1em; color: #198754;">✅</span> Verificação em dia</div>
+    <div><span style="font-size: 1.1em; color: #ffc107;">⚠️</span> Faltando máx/mín</div>
+    <div><span style="font-size: 1.1em; color: #b02a37;">⛔</span> Sem verificação hoje</div>
+</div>
 
 
 <table class="table table-bordered">
@@ -49,7 +54,19 @@
         <tr>
             <td>{{ termo.setor }}</td>
             <td>{{ termo.equipamento }}</td>
-            <td>{{ termo.identificacao }}</td>
+            <td>
+                {{ termo.identificacao }}
+            
+                {% if termo.id in termometros_atrasados %}
+                    <span title="Sem verificação hoje" style="color: #b02a37; font-size: 1.1em;">⛔</span>
+                {% elif termo.id in termometros_incompletos %}
+                    <span title="Falta máx/mín" style="color: #ffc107; font-size: 1.1em;">⚠️</span>
+                {% else %}
+                    <span title="Em dia" style="color: #198754; font-size: 1.1em;">✅</span>
+                {% endif %}
+            </td>
+            
+            
             <td>
                 <a href="{{ url_for('main.verificar', id=termo.id) }}" class="btn btn-sm btn-success">Verificar</a>
                 <a href="{{ url_for('main.historico', id=termo.id) }}" class="btn btn-sm btn-info">Histórico</a>

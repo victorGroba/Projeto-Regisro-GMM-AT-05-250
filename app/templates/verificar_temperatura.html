@@ -8,45 +8,38 @@
     <div class="mb-3">
         {{ form.temperatura_atual.label(class="form-label") }}
         {{ form.temperatura_atual(class="form-control") }}
-        {% if form.temperatura_atual.errors %}
-            <div class="text-danger">{{ form.temperatura_atual.errors[0] }}</div>
-        {% endif %}
     </div>
 
     <div class="mb-3">
         {{ form.temperatura_max.label(class="form-label") }}
         {{ form.temperatura_max(class="form-control") }}
-        {% if form.temperatura_max.errors %}
-            <div class="text-danger">{{ form.temperatura_max.errors[0] }}</div>
-        {% endif %}
     </div>
 
     <div class="mb-3">
         {{ form.temperatura_min.label(class="form-label") }}
         {{ form.temperatura_min(class="form-control") }}
-        {% if form.temperatura_min.errors %}
-            <div class="text-danger">{{ form.temperatura_min.errors[0] }}</div>
-        {% endif %}
     </div>
 
-    {% if session.get('is_admin') %}
     <div class="mb-3">
         {{ form.responsavel.label(class="form-label") }}
         {{ form.responsavel(class="form-control") }}
     </div>
 
+    {% if session.get('is_admin') %}
     <div class="mb-3">
-        <label for="data_hora" class="form-label">Data e Hora (retroativo)</label>
-        <input type="datetime-local" name="data_hora" class="form-control">
+        {{ form.data_manual.label(class="form-label") }}
+        {{ form.data_manual(class="form-control") }}
+        <div class="form-text">Use este campo apenas se precisar registrar para outra data/hora.</div>
     </div>
     {% endif %}
 
     <div class="mb-3">
         {{ form.observacao.label(class="form-label") }}
-        {{ form.observacao(class="form-control") }}
+        {{ form.observacao(class="form-select") }}
     </div>
 
-    <button type="submit" class="btn btn-success">Registrar</button>
+    <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
 </form>
+
 
 {% endblock %}

@@ -1,6 +1,8 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, TextAreaField, SubmitField, PasswordField, SelectField, BooleanField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, Optional
+from wtforms.fields import DateTimeLocalField
+
 
 
 
@@ -15,10 +17,16 @@ class TermometroForm(FlaskForm):
 
 class VerificacaoForm(FlaskForm):
     temperatura_atual = FloatField('Temperatura Atual (°C)', validators=[DataRequired()])
-    temperatura_max = FloatField('Temperatura Máxima (°C)', validators=[DataRequired()])
-    temperatura_min = FloatField('Temperatura Mínima (°C)', validators=[DataRequired()])
+    temperatura_max = FloatField('Temperatura Máxima (°C)', validators=[Optional()])
+    temperatura_min = FloatField('Temperatura Mínima (°C)', validators=[Optional()])
     responsavel = StringField('Responsável', validators=[DataRequired()])
-    
+
+    data_manual = DateTimeLocalField(
+        'Data/Hora (somente para administradores)',
+        format='%Y-%m-%dT%H:%M',
+        validators=[Optional()]
+    )
+
     observacao = SelectField('Observação (opcional)', choices=[
         ('Nenhuma', 'Nenhuma'),
         ('A', 'A. Descongelamento/Limpeza'),
@@ -31,7 +39,7 @@ class VerificacaoForm(FlaskForm):
         ('H', 'H. Limpeza após contaminação'),
         ('I', 'I. Outro (verificar observações)')
     ])
-    
+
     submit = SubmitField('Registrar Verificação')
     
 

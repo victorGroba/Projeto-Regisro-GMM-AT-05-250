@@ -140,8 +140,9 @@
                 <!-- Botões -->
                 <div class="no-print mb-2">
                     <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-sm">← Voltar</a>
-                    <button onclick="imprimirBloco(this)" class="btn btn-success btn-sm">🖨 Imprimir este mês</button>
-                    
+                    <button onclick="imprimirBloco()" class="btn btn-success btn-sm">🖨 Imprimir este mês</button>
+
+
 
                 </div>
 
@@ -150,10 +151,7 @@
                     <div class="d-flex align-items-center">
                         <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo"
                             style="height:40px;margin-right:10px;">
-                        <div>
-                            <strong>Mattos & Mattos</strong><br>
-                            <small>LABORATÓRIOS</small>
-                        </div>
+
                     </div>
                     <div style="color:#0047AB; text-align: right; font-weight:bold;">SISTEMA DA GESTÃO DE QUALIDADE
                     </div>
@@ -202,29 +200,27 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for dia in range(1, 32) %}
-                                {% set v = verificacoes_mes.get(dia) %}
+                                {% for v in verificacoes_mes %}
                                 <tr>
-                                    <td>{{ dia }}</td>
-                                    <td>{{ v.get_data_hora_sp().strftime('%H:%M') if v else '' }}</td>
-                                    <td>{{ v.responsavel if v else '' }}</td>
-                                    <td>{{ v.temperatura_atual if v else '' }}</td>
-                                    <td>{{ v.temperatura_max if v else '' }}</td>
-                                    <td>{{ v.temperatura_min if v else '' }}</td>
-                                    <td>{{ v.observacao if v else '' }}</td>
+                                    <td>{{ v.get_data_hora_sp().strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ v.get_data_hora_sp().strftime('%H:%M') }}</td>
+                                    <td>{{ v.responsavel }}</td>
+                                    <td>{{ v.temperatura_atual }}</td>
+                                    <td>{{ v.temperatura_max if v.temperatura_max is not none else '' }}</td>
+                                    <td>{{ v.temperatura_min if v.temperatura_min is not none else '' }}</td>
+                                    <td>{{ v.observacao }}</td>
                                     {% if session.get('is_admin') %}
                                     <td>
-                                        {% if v %}
                                         <form method="POST" action="{{ url_for('main.excluir_verificacao', id=v.id) }}"
                                             style="display:inline;">
                                             <button type="submit" class="btn btn-sm btn-danger"
                                                 onclick="return confirm('Deseja excluir esta verificação?')">Excluir</button>
                                         </form>
-                                        {% endif %}
                                     </td>
                                     {% endif %}
                                 </tr>
                                 {% endfor %}
+
                             </tbody>
 
                         </table>
@@ -288,21 +284,11 @@
 
     <!-- Scripts -->
     <script>
-        function imprimirBloco(botao) {
-            const bloco = botao.closest('.bloco-impressao').outerHTML;
-            const w = window.open('', '_blank');
-            w.document.write(`
-                <html><head><title>Impressão</title>
-                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-                <style>@media print {.no-print { display: none !important; }}</style>
-                </head><body>${bloco}</body></html>`);
-            w.document.close();
-            w.focus();
-            w.print();
-            w.close();
+        function imprimirBloco() {
+            window.print();
         }
     </script>
-
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>

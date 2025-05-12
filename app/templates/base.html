@@ -24,6 +24,44 @@
 </head>
 
 <body>
+  {% if session.get('usuario_id') %}
+  <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom px-3 mb-3">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ url_for('main.index') }}">
+        <!-- Ícone ou logo opcional -->
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" height="30" class="me-2">
+        Controle de Temperatura
+      </a>
+  
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
+        aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+  
+      <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+        {% if session.get('usuario_id') %}
+          <span class="navbar-text me-3">
+            Logado como: <strong>{{ session.get('usuario_nome') }}</strong>
+            {% if session.get('is_admin') %}
+              <span class="badge bg-primary ms-2">Admin</span>
+            {% endif %}
+          </span>
+          <a href="{{ url_for('main.logout') }}" class="btn btn-outline-secondary btn-sm">Sair</a>
+        {% else %}
+          <a href="{{ url_for('main.login') }}" class="btn btn-outline-primary btn-sm">Entrar</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+  
+{% else %}
+<nav class="navbar navbar-light bg-light border-bottom px-3 mb-3">
+    <div class="container-fluid d-flex justify-content-end">
+        <a href="{{ url_for('main.login') }}" class="btn btn-outline-primary btn-sm">Entrar</a>
+    </div>
+</nav>
+{% endif %}
+
   <div class="header container py-3">
     <div class="row justify-content-center align-items-center">
 

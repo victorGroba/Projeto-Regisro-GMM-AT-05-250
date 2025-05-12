@@ -6,9 +6,10 @@ from functools import wraps
 import pandas as pd
 import io
 from weasyprint import HTML
-from datetime import datetime
+from datetime import datetime, date, time, timedelta
 from collections import defaultdict
-
+from sqlalchemy import func
+import pytz
 
 bp = Blueprint('main', __name__)
 
@@ -34,16 +35,63 @@ def admin_requerido(f):
 # Rotas
 @bp.route('/')
 def index():
-    setor_filtro = request.args.get('setor')
+    termo_busca = request.args.get('q', '').strip()          # captura o termo digitado
+    setor_filtro = request.args.get('setor')                 # captura filtro por setor, se existir
+
+    query = Termometro.query
+
     if setor_filtro:
-        termometros = Termometro.query.filter_by(setor=setor_filtro).all()
-    else:
-        termometros = Termometro.query.all()
+        query = query.filter_by(setor=setor_filtro)         # aplica filtro por setor
+
+    if termo_busca:
+        termo_like = f"%{termo_busca}%"
+        query = query.filter(
+            (Termometro.identificacao.ilike(termo_like)) |
+            (Termometro.equipamento.ilike(termo_like))
+        )
+
+    termometros = query.all()
 
     setores = db.session.query(Termometro.setor).distinct().all()
-    setores = [s[0] for s in setores]  # extrai o nome do setor
+    setores = [s[0] for s in setores]
 
-    return render_template('index.html', termometros=termometros, setores=setores, setor_filtro=setor_filtro)
+    # Recalcular os alertas também se você estiver usando o sistema de status:
+    from datetime import datetime, time, timedelta
+    import pytz
+
+    sp_tz = pytz.timezone('America/Sao_Paulo')
+    hoje_sp = datetime.now(sp_tz).date()
+    inicio_local = sp_tz.localize(datetime.combine(hoje_sp, time.min))
+    inicio_utc = inicio_local.astimezone(pytz.utc)
+    fim_utc = (inicio_local + timedelta(days=1)).astimezone(pytz.utc)
+
+    verificacoes_hoje = Verificacao.query.filter(
+        Verificacao.data_hora >= inicio_utc,
+        Verificacao.data_hora < fim_utc
+    ).all()
+
+    verificacoes_por_termometro = {v.termometro_id: v for v in verificacoes_hoje}
+
+    termometros_atrasados = []
+    termometros_incompletos = []
+
+    for termo in termometros:
+        v = verificacoes_por_termometro.get(termo.id)
+        if not v:
+            termometros_atrasados.append(termo.id)
+        elif v.temperatura_max is None or v.temperatura_min is None:
+            termometros_incompletos.append(termo.id)
+
+    return render_template(
+        'index.html',
+        termometros=termometros,
+        setores=setores,
+        setor_filtro=setor_filtro,
+        termo_busca=termo_busca,
+        termometros_atrasados=termometros_atrasados,
+        termometros_incompletos=termometros_incompletos
+    )
+
 
 @bp.route('/cadastrar', methods=['GET', 'POST'])
 @login_requerido
@@ -72,21 +120,24 @@ def historico(id):
     termometro = Termometro.query.get_or_404(id)
     verificacoes = Verificacao.query.filter_by(termometro_id=termometro.id).all()
 
-    # Agrupa por mês e dia (dia como inteiro) para caber no template
-    agrupado = defaultdict(dict)
+    # Agrupa por mês/ano e ordena por data/hora
+    from collections import defaultdict
+
+    agrupado = defaultdict(list)
     for v in verificacoes:
         data_sp = v.get_data_hora_sp()
-        mes_ano = data_sp.strftime('%m/%Y')  # chave do mês
-        dia = data_sp.day                     # dia como inteiro
-        if mes_ano not in agrupado:
-            agrupado[mes_ano] = {}
-        agrupado[mes_ano][dia] = v
+        mes_ano = data_sp.strftime('%m/%Y')
+        agrupado[mes_ano].append(v)
+
+    for mes in agrupado:
+        agrupado[mes] = sorted(agrupado[mes], key=lambda v: v.get_data_hora_sp())
 
     return render_template(
         'historico.html',
         termometro=termometro,
         historico_mensal=agrupado
     )
+
 
 
 
@@ -203,56 +254,104 @@ def excluir_termometro(id):
 from datetime import datetime
 import pytz  # Certifique-se que está no topo do arquivo
 
+from wtforms.validators import DataRequired
+
 @bp.route('/verificar/<int:id>', methods=['GET', 'POST'])
 @login_requerido
 def verificar(id):
     termometro = Termometro.query.get_or_404(id)
     form = VerificacaoForm()
 
-    # Preenche o campo responsável automaticamente se não for admin
+    # Pré‐popula o responsável para usuários comuns
     if not session.get('is_admin'):
         form.responsavel.data = session.get('usuario_nome')
 
-    # Mostra erro caso o form não seja válido (ajuda na depuração)
-    if request.method == 'POST' and not form.validate():
-        flash('Erro ao registrar verificação. Verifique os campos.', 'danger')
+    # Define timezone de SP
+    sp_tz = pytz.timezone('America/Sao_Paulo')
+    hoje_sp = datetime.now(sp_tz).date()
+    inicio_local = sp_tz.localize(datetime.combine(hoje_sp, time.min))
+    inicio_utc = inicio_local.astimezone(pytz.utc)
+    fim_utc = (inicio_local + timedelta(days=1)).astimezone(pytz.utc)
 
-    if form.validate_on_submit():
-        # Admin pode escolher data/hora manual
-        if session.get('is_admin'):
-            data_hora_str = request.form.get('data_hora')
-            if data_hora_str:
-                # Trata a hora como sendo de São Paulo e converte para UTC
-                sp_tz = pytz.timezone('America/Sao_Paulo')
-                local_dt = sp_tz.localize(datetime.strptime(data_hora_str, "%Y-%m-%dT%H:%M"))
-                data_hora = local_dt.astimezone(pytz.utc)
-            else:
-                data_hora = datetime.now(pytz.utc)
-            responsavel = form.responsavel.data
+    # Verifica se já existe uma verificação para hoje
+    primeira = Verificacao.query.filter(
+        Verificacao.termometro_id == id,
+        Verificacao.data_hora >= inicio_utc,
+        Verificacao.data_hora < fim_utc
+    ).order_by(Verificacao.data_hora).first()
+
+    exigira_maxmin = bool(primeira)
+
+    # Pré-preenche temperatura e observação caso esteja atualizando
+    if request.method == 'GET' and exigira_maxmin:
+        form.temperatura_atual.data = primeira.temperatura_atual
+        form.observacao.data = primeira.observacao
+
+    # Primeira leitura do dia
+    if request.method == 'POST' and not exigira_maxmin:
+        atual = form.temperatura_atual.data
+        max_temp = form.temperatura_max.data
+        min_temp = form.temperatura_min.data
+
+        if atual is None:
+            flash('Preencha a temperatura atual.', 'danger')
         else:
-            # Para usuário comum: usa hora atual em UTC e nome da sessão
-            data_hora = datetime.now(pytz.utc)
-            responsavel = session.get('usuario_nome')
+            v = Verificacao(
+                temperatura_atual=atual,
+                temperatura_max=max_temp,  # agora aceita opcionalmente
+                temperatura_min=min_temp,
+                responsavel=form.responsavel.data,
+                observacao=form.observacao.data,
+                data_hora=form.data_manual.data.astimezone(pytz.utc) if form.data_manual.data else datetime.now(pytz.utc),
 
-        # Cria nova verificação
-        verificacao = Verificacao(
-            temperatura_atual=form.temperatura_atual.data,
-            temperatura_max=form.temperatura_max.data,
-            temperatura_min=form.temperatura_min.data,
-            responsavel=responsavel,
-            observacao=form.observacao.data,
-            data_hora=data_hora,
-            termometro_id=termometro.id
-        )
+                termometro_id=id
+            )
+            db.session.add(v)
+            db.session.commit()
+            flash('Leitura registrada com sucesso!', 'success')
+            return redirect(url_for('main.historico', id=id))
 
-        db.session.add(verificacao)
+    # Segunda leitura do dia: atualização
+    if form.validate_on_submit() and exigira_maxmin:
+        primeira.temperatura_max = form.temperatura_max.data
+        primeira.temperatura_min = form.temperatura_min.data
+        primeira.observacao = form.observacao.data
         db.session.commit()
-
-        flash('Verificação registrada com sucesso!', 'success')
+        flash('Leitura final do dia atualizada com Máx/Mín.', 'success')
         return redirect(url_for('main.historico', id=id))
 
-    return render_template('verificar_temperatura.html', form=form, termometro=termometro)
+    # Erros de validação na submissão final
+    if request.method == 'POST' and exigira_maxmin:
+        flash(f'Erros no formulário: {form.errors}', 'danger')
 
+    return render_template(
+        'verificar_temperatura.html',
+        form=form,
+        termometro=termometro,
+        exigir_maxmin=exigira_maxmin
+    )
+
+
+    # ——— LEITURA FINAL: atualiza o registro original ———
+    if form.validate_on_submit() and exigira_maxmin:
+        primeira.temperatura_max = form.temperatura_max.data
+        primeira.temperatura_min = form.temperatura_min.data
+        primeira.observacao      = form.observacao.data
+        # NÃO alteramos primeira.data_hora, preservando o horário original
+        db.session.commit()
+        flash('Leitura final do dia atualizada com Máx/Mín.', 'success')
+        return redirect(url_for('main.historico', id=id))
+
+    # Em caso de erro no POST final
+    if request.method == 'POST' and exigira_maxmin:
+        flash(f'Erros no formulário: {form.errors}', 'danger')
+
+    return render_template(
+        'verificar_temperatura.html',
+        form=form,
+        termometro=termometro,
+        exigir_maxmin=exigira_maxmin
+    )
 
 @bp.route('/listar_admins')
 def listar_admins():
