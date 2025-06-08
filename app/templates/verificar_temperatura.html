@@ -35,8 +35,32 @@
 
     <div class="mb-3">
         {{ form.observacao.label(class="form-label") }}
-        {{ form.observacao(class="form-select") }}
+        {{ form.observacao(class="form-select", id="observacao-select") }}
     </div>
+    
+    <div class="mb-3" id="observacao-custom" style="display: none;">
+        {{ form.observacao_personalizada.label(class="form-label") }}
+        {{ form.observacao_personalizada(class="form-control") }}
+    </div>
+    
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const select = document.getElementById("observacao-select");
+        const customInput = document.getElementById("observacao-custom");
+    
+        function toggleInput() {
+            if (select.value === "I") {
+                customInput.style.display = "block";
+            } else {
+                customInput.style.display = "none";
+            }
+        }
+    
+        select.addEventListener("change", toggleInput);
+        toggleInput(); // Rodar ao carregar a página
+    });
+    </script>
+    
 
     <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
 </form>

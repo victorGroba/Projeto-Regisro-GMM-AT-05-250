@@ -20,6 +20,8 @@ class VerificacaoForm(FlaskForm):
     temperatura_max = FloatField('Temperatura Máxima (°C)', validators=[Optional()])
     temperatura_min = FloatField('Temperatura Mínima (°C)', validators=[Optional()])
     responsavel = StringField('Responsável', validators=[DataRequired()])
+    observacao_personalizada = StringField('Descreva a observação', validators=[Optional()])
+
 
     data_manual = DateTimeLocalField(
         'Data/Hora (somente para administradores)',

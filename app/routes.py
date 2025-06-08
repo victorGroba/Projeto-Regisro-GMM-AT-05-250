@@ -107,12 +107,27 @@ def cadastrar():
         )
         db.session.add(termometro)
         db.session.commit()
+
+        # ✅ GERAÇÃO AUTOMÁTICA DO QR CODE
+        import qrcode
+        import os
+
+        # Gera URL externa para verificar temperatura
+        url = url_for('main.verificar', id=termometro.id, _external=True)
+        img = qrcode.make(url)
+
+        # Caminho de salvamento do QR Code (ajustado ao seu diretório)
+        pasta_qr = r"C:\Users\victo\OneDrive\Documentos\projeto-termometro\app\static\qrcodes"
+        os.makedirs(pasta_qr, exist_ok=True)
+        caminho_arquivo = os.path.join(pasta_qr, f"{termometro.identificacao}.png")
+
+        img.save(caminho_arquivo)
+
+        flash('Termômetro cadastrado e QR Code gerado com sucesso!', 'success')
         return redirect(url_for('main.index'))
+
     return render_template('cadastrar_termometro.html', form=form)
 
-
-
-from collections import defaultdict
 
 @bp.route('/historico/<int:id>')
 @login_requerido
@@ -280,15 +295,18 @@ def verificar(id):
         Verificacao.data_hora < fim_utc
     ).order_by(Verificacao.data_hora).first()
 
-    exigira_maxmin = bool(primeira)
+    exigir_maxmin = bool(primeira)
 
     # Pré-preenche temperatura e observação caso esteja atualizando
-    if request.method == 'GET' and exigira_maxmin:
+    if request.method == 'GET' and exigir_maxmin:
         form.temperatura_atual.data = primeira.temperatura_atual
         form.observacao.data = primeira.observacao
+        form.observacao_personalizada.data = (
+            primeira.observacao if primeira.observacao not in dict(form.observacao.choices).keys() else ""
+        )
 
     # Primeira leitura do dia
-    if request.method == 'POST' and not exigira_maxmin:
+    if request.method == 'POST' and not exigir_maxmin:
         atual = form.temperatura_atual.data
         max_temp = form.temperatura_max.data
         min_temp = form.temperatura_min.data
@@ -296,14 +314,18 @@ def verificar(id):
         if atual is None:
             flash('Preencha a temperatura atual.', 'danger')
         else:
+            # Lida com observação personalizada
+            observacao_final = form.observacao.data
+            if observacao_final == "I" and form.observacao_personalizada.data:
+                observacao_final = form.observacao_personalizada.data
+
             v = Verificacao(
                 temperatura_atual=atual,
-                temperatura_max=max_temp,  # agora aceita opcionalmente
+                temperatura_max=max_temp,
                 temperatura_min=min_temp,
                 responsavel=form.responsavel.data,
-                observacao=form.observacao.data,
+                observacao=observacao_final,
                 data_hora=form.data_manual.data.astimezone(pytz.utc) if form.data_manual.data else datetime.now(pytz.utc),
-
                 termometro_id=id
             )
             db.session.add(v)
@@ -312,24 +334,30 @@ def verificar(id):
             return redirect(url_for('main.historico', id=id))
 
     # Segunda leitura do dia: atualização
-    if form.validate_on_submit() and exigira_maxmin:
+    if form.validate_on_submit() and exigir_maxmin:
+        # Lida com observação personalizada
+        observacao_final = form.observacao.data
+        if observacao_final == "I" and form.observacao_personalizada.data:
+            observacao_final = form.observacao_personalizada.data
+
         primeira.temperatura_max = form.temperatura_max.data
         primeira.temperatura_min = form.temperatura_min.data
-        primeira.observacao = form.observacao.data
+        primeira.observacao = observacao_final
         db.session.commit()
         flash('Leitura final do dia atualizada com Máx/Mín.', 'success')
         return redirect(url_for('main.historico', id=id))
 
-    # Erros de validação na submissão final
-    if request.method == 'POST' and exigira_maxmin:
+    # Em caso de erro no POST final
+    if request.method == 'POST' and exigir_maxmin:
         flash(f'Erros no formulário: {form.errors}', 'danger')
 
     return render_template(
         'verificar_temperatura.html',
         form=form,
         termometro=termometro,
-        exigir_maxmin=exigira_maxmin
+        exigir_maxmin=exigir_maxmin
     )
+
 
 
     # ——— LEITURA FINAL: atualiza o registro original ———
