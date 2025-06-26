@@ -1,0 +1,7 @@
+*.zip
+*.rar
+*.exe
+*.db
+*.log
+__pycache__/
+instance/
