@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Plano de Ação - Estruturação de TI Corporativa</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      line-height: 1.6;
+      color: #2c3e50;
+    }
+    h1, h2, h3 {
+      color: #1a237e;
+    }
+    p {
+      margin-bottom: 15px;
+    }
+    ul {
+      margin-left: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    th {
+      background-color: #e8eaf6;
+    }
+    .bloco {
+      background-color: #f5f5f5;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-left: 5px solid #1a237e;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        color: #000;
+      }
+
+      .bloco {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border-left: 4px solid #000;
+      }
+
+      table {
+        page-break-inside: avoid;
+      }
+
+      h1, h2, h3 {
+        color: #000;
+      }
+
+      .final {
+        background-color: #f0f0f0 !important;
+        border-left: 4px solid #000;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Projeto de Estruturação e Segurança da Rede Corporativa</h1>
+  <p>Este documento apresenta um plano estratégico para a modernização da infraestrutura de Tecnologia da Informação da empresa, utilizando como base a estrutura já existente, sem perda de dados ou interrupções nos processos atuais. As ações propostas visam padronizar acessos, fortalecer a segurança da informação, organizar a comunicação interna e aprimorar os processos operacionais, promovendo maior controle, eficiência e escalabilidade.</p>
+
+  <div class="bloco">
+    <h2>1. Objetivo</h2>
+    <p>Este plano visa transformar a infraestrutura de TI da empresa em um ambiente moderno, seguro, padronizado e escalável. Serão aplicadas soluções com base em Active Directory, Políticas de Grupo, File Server, Microsoft Teams, Backup, Help Desk e segurança de comunicação com os coletores externos.</p>
+  </div>
+
+  <div class="bloco">
+    <h2>2. Diagnóstico Atual</h2>
+    <ul>
+      <li>Estações de trabalho da Administração, Comercial, RH e Financeiro sem controle de autenticação.</li>
+      <li>Pastas compartilhadas existentes no servidor, mas sem políticas de permissão definidas.</li>
+      <li>Setores do Laboratório operando de forma isolada, também sem controle central.</li>
+      <li>Falta de padronização na comunicação interna entre os setores.</li>
+      <li>Inexistência de estrutura para acesso e comunicação com equipes externas (coletores).</li>
+      <li>Uso de WhatsApp no laboratório para comunicação interna, sem controle, com risco de uso indevido e exposição de dados.</li>
+      <li>Ausência de sistema formalizado de abertura de chamados de suporte (Help Desk).</li>
+    </ul>
+  </div>
+
+  <div class="bloco">
+    <h2>3. Etapas de Implantação</h2>
+
+    <h3>Etapa 1: Estruturar o Active Directory (AD) e controle de acessos</h3>
+    <ul>
+      <li>Instalar e configurar o AD no servidor da sede.</li>
+      <li>Criar Unidades Organizacionais por setor: Administração, RH, Comercial, Financeiro, Laboratório.</li>
+      <li>Adicionar as máquinas ao domínio e definir políticas de autenticação via GPO.</li>
+      <li>Aplicar bloqueio automático, senha forte, número máximo de tentativas e auditoria.</li>
+    </ul>
+
+    <h3>Etapa 2: Organizar e proteger os compartilhamentos de arquivos</h3>
+    <ul>
+      <li>Padronizar estrutura de pastas no File Server por setor.</li>
+      <li>Criar grupos de segurança e permissões específicas para cada setor.</li>
+      <li>Implementar backup automatizado semanal e testado.</li>
+      <li>Mapear as unidades de rede automaticamente via GPO.</li>
+    </ul>
+
+    <h3>Etapa 3: Implantar o Microsoft Teams como canal oficial de comunicação</h3>
+    <ul>
+      <li>Vincular os usuários ao domínio Microsoft 365 (ou criar contas corporativas).</li>
+      <li>Criar canais por setor: RH, Comercial, Financeiro, TI, Laboratório, etc.</li>
+      <li>Substituir o uso de WhatsApp por Teams com chat, voz, arquivos e reuniões.</li>
+      <li>Aplicar autenticação multifator (MFA) e políticas de uso.</li>
+    </ul>
+
+    <h3>Etapa 4: Comunicação interna na área limpa do laboratório</h3>
+    <ul>
+      <li>Instalar estações fixas ou tablets higienizáveis em pontos estratégicos.</li>
+      <li>Criar canais internos no Teams exclusivos por função/setor.</li>
+      <li>Desabilitar o uso de celulares pessoais dentro da área limpa.</li>
+      <li>Garantir comunicação com rastreabilidade e segurança institucional.</li>
+    </ul>
+
+    <h3>Etapa 5: Implantar Sistema de Help Desk Interno</h3>
+    <ul>
+      <li>Escolher uma plataforma como GLPI, OTRS, Zammad ou criar solução própria.</li>
+      <li>Padronizar tipos de chamados: Suporte, Acesso, Software, Manutenção.</li>
+      <li>Definir regras de prioridade, SLA e notificações automáticas.</li>
+      <li>Treinar os colaboradores e manter histórico de tickets e relatórios.</li>
+    </ul>
+  </div>
+
+  <div class="bloco">
+    <h2>4. Melhorias e Benefícios</h2>
+    <ul>
+      <li>Controle completo de usuários e dispositivos via domínio (AD).</li>
+      <li>Segurança e rastreabilidade no acesso a arquivos e sistemas.</li>
+      <li>Comunicação segura e padronizada com Microsoft Teams.</li>
+      <li>Eliminação do uso de WhatsApp em áreas críticas do laboratório.</li>
+      <li>Formalização de chamados com histórico e indicadores.</li>
+      <li>Base sólida para crescimento, auditorias e conformidade com a LGPD.</li>
+    </ul>
+  </div>
+
+  <br><br>
+
+  <div class="bloco">
+    <h2>5. Sugestões Adicionais</h2>
+    <ul>
+      <li>Utilizar Microsoft Intune para controle de dispositivos móveis (MDM).</li>
+      <li>Criar um painel com indicadores de chamados, acesso e produtividade.</li>
+      <li>Aplicar política de conduta digital com aceite por parte dos colaboradores.</li>
+      <li>Monitorar performance com Event Viewer e Performance Monitor.</li>
+      <li>Estabelecer versão e controle formal de documentos internos.</li>
+    </ul>
+  </div>
+
+  <div class="bloco">
+    <h2>6. Cronograma de Implementação</h2>
+    <table>
+      <thead>
+        <tr><th>Semana</th><th>Atividade</th><th>Responsável</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Levantamento e inventário da infraestrutura atual</td><td>TI</td><td>Pendente</td></tr>
+        <tr><td>2</td><td>Instalação e configuração do Active Directory</td><td>TI</td><td>Pendente</td></tr>
+        <tr><td>3</td><td>Criação de OUs, usuários e grupos por setor</td><td>TI</td><td>Pendente</td></tr>
+        <tr><td>4</td><td>Adesão das máquinas ao domínio + aplicação de GPOs</td><td>TI</td><td>Pendente</td></tr>
+        <tr><td>5</td><td>Implantação do Teams, canais e treinamento</td><td>TI / RH</td><td>Pendente</td></tr>
+        <tr><td>6</td><td>Configuração de dispositivos externos e coletores</td><td>TI</td><td>Pendente</td></tr>
+        <tr><td>7</td><td>Implantação de estações fixas no laboratório</td><td>TI / CQ</td><td>Pendente</td></tr>
+        <tr><td>8</td><td>Implantação e testes do sistema de Help Desk</td><td>TI</td><td>Pendente</td></tr>
+        <tr><td>9</td><td>Revisão geral, documentação e entrega final</td><td>TI / Direção</td><td>Pendente</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bloco">
+    <h2>7. Controle de Impressões por Usuário (Etapa Futura)</h2>
+    <p>Para ampliar o controle de recursos e promover a responsabilidade no uso das impressoras da empresa, recomenda-se implementar um sistema de gerenciamento de impressão integrado ao Active Directory. Essa medida permitirá monitorar e restringir impressões conforme regras definidas por setor ou usuário.</p>
+    <ul>
+      <li>Vincular as impressoras de rede ao domínio via servidor de impressão.</li>
+      <li>Aplicar permissões de impressão por grupo de usuários.</li>
+      <li>Instalar um sistema de gerenciamento de impressão como <strong>Papercut NG, Print Manager Plus</strong> ou <strong>Equitrac</strong>.</li>
+      <li>Gerar relatórios por usuário, setor e impressora com total de impressões realizadas.</li>
+      <li>Configurar cotas de impressão por colaborador ou por departamento.</li>
+      <li>Integrar ao sistema de Help Desk para solicitações especiais de impressão.</li>
+    </ul>
+    <p>Esse controle trará mais transparência, economia de suprimentos e alinhamento com práticas sustentáveis e de compliance.</p>
+  </div>
+
+  <div class="bloco">
+    <h2>8. Considerações Finais</h2>
+    <p>Este plano proporciona à empresa uma estrutura de TI moderna, segura e organizada. A integração dos sistemas e controle de acesso aumentará a produtividade, a segurança da informação e permitirá escalabilidade para o crescimento da organização.</p>
+    <p><strong>Elaborado por:</strong> José Victor<br>
+    <strong>Data:</strong> 23/06/2025</p>
+  </div>
+
+  
+</body>
+</html>
