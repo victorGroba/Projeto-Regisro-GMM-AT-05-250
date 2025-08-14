@@ -4,4 +4,4 @@ flask_migrate
 pandas
 xlsxwriter
 weasyprint
-
+qrcode
