@@ -1,7 +1,8 @@
 *.zip
 *.rar
 *.exe
-*.db
-*.log
 __pycache__/
-instance/
+*.pyc
+venv/
+.venv/
+*.egg-info/

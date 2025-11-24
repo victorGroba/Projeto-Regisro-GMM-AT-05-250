@@ -1,19 +1,23 @@
-from flask import Blueprint, render_template, redirect, url_for, request, session, flash, send_file, Response
+from flask import Blueprint, render_template, redirect, url_for, request, session, flash, send_file, Response, current_app
 from . import db
 from .models import Termometro, Verificacao, Usuario
 from .forms import TermometroForm, VerificacaoForm, LoginForm, UsuarioForm
 from functools import wraps
 import pandas as pd
 import io
-from weasyprint import HTML
+# from weasyprint import HTML  # (mantido comentado; importe se for usar PDF aqui)
 from datetime import datetime, date, time, timedelta
 from collections import defaultdict
 from sqlalchemy import func
 import pytz
+from pathlib import Path
+import qrcode
 
 bp = Blueprint('main', __name__)
 
+# =========================
 # Decorators
+# =========================
 def login_requerido(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -32,16 +36,19 @@ def admin_requerido(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+# =========================
 # Rotas
+# =========================
 @bp.route('/')
 def index():
-    termo_busca = request.args.get('q', '').strip()          # captura o termo digitado
-    setor_filtro = request.args.get('setor')                 # captura filtro por setor, se existir
+    termo_busca = request.args.get('q', '').strip()
+    setor_filtro = request.args.get('setor')
 
     query = Termometro.query
 
     if setor_filtro:
-        query = query.filter_by(setor=setor_filtro)         # aplica filtro por setor
+        query = query.filter_by(setor=setor_filtro)
 
     if termo_busca:
         termo_like = f"%{termo_busca}%"
@@ -55,10 +62,7 @@ def index():
     setores = db.session.query(Termometro.setor).distinct().all()
     setores = [s[0] for s in setores]
 
-    # Recalcular os alertas também se você estiver usando o sistema de status:
-    from datetime import datetime, time, timedelta
-    import pytz
-
+    # Recalcular alertas do dia (fuso de SP)
     sp_tz = pytz.timezone('America/Sao_Paulo')
     hoje_sp = datetime.now(sp_tz).date()
     inicio_local = sp_tz.localize(datetime.combine(hoje_sp, time.min))
@@ -108,20 +112,16 @@ def cadastrar():
         db.session.add(termometro)
         db.session.commit()
 
-        # ✅ GERAÇÃO AUTOMÁTICA DO QR CODE
-        import qrcode
-        import os
-
-        # Gera URL externa para verificar temperatura
+        # ✅ GERAÇÃO AUTOMÁTICA DO QR CODE (salvando dentro do projeto)
         url = url_for('main.verificar', id=termometro.id, _external=True)
         img = qrcode.make(url)
 
-        # Caminho de salvamento do QR Code (ajustado ao seu diretório)
-        pasta_qr = r"C:\Users\victo\OneDrive\Documentos\projeto-termometro\app\static\qrcodes"
-        os.makedirs(pasta_qr, exist_ok=True)
-        caminho_arquivo = os.path.join(pasta_qr, f"{termometro.identificacao}.png")
+        # Ex: .../app/static/qrcodes/
+        qr_dir = Path(current_app.root_path) / "static" / "qrcodes"
+        qr_dir.mkdir(parents=True, exist_ok=True)
 
-        img.save(caminho_arquivo)
+        qr_path = qr_dir / f"{termometro.identificacao}.png"
+        img.save(qr_path)
 
         flash('Termômetro cadastrado e QR Code gerado com sucesso!', 'success')
         return redirect(url_for('main.index'))
@@ -136,8 +136,6 @@ def historico(id):
     verificacoes = Verificacao.query.filter_by(termometro_id=termometro.id).all()
 
     # Agrupa por mês/ano e ordena por data/hora
-    from collections import defaultdict
-
     agrupado = defaultdict(list)
     for v in verificacoes:
         data_sp = v.get_data_hora_sp()
@@ -152,8 +150,6 @@ def historico(id):
         termometro=termometro,
         historico_mensal=agrupado
     )
-
-
 
 
 @bp.route('/exportar_excel/<int:id>')
@@ -181,6 +177,7 @@ def exportar_excel(id):
     output.seek(0)
     return send_file(output, download_name='controle_temperatura.xlsx', as_attachment=True)
 
+
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if 'usuario_id' in session:
@@ -200,12 +197,14 @@ def login():
 
     return render_template('login.html', form=form)
 
+
 @bp.route('/logout')
 @login_requerido
 def logout():
     session.clear()
     flash('Você saiu da sessão.', 'info')
     return redirect(url_for('main.login'))
+
 
 @bp.route('/excluir-verificacao/<int:id>', methods=['POST'])
 @admin_requerido
@@ -215,6 +214,7 @@ def excluir_verificacao(id):
     db.session.commit()
     flash('Verificação excluída com sucesso!', 'success')
     return redirect(request.referrer or url_for('main.index'))
+
 
 @bp.route('/verificacao/<int:id>/editar', methods=['GET', 'POST'])
 @admin_requerido
@@ -234,6 +234,7 @@ def editar_verificacao(id):
 
     return render_template('editar_verificacao.html', form=form)
 
+
 @bp.route('/cadastrar_usuario', methods=['GET', 'POST'])
 @admin_requerido
 def cadastrar_usuario():
@@ -241,22 +242,23 @@ def cadastrar_usuario():
     if form.validate_on_submit():
         novo_usuario = Usuario(
             username=form.username.data,
-            senha_hash=form.senha.data,  # Corrija para usar hash
             is_admin=form.is_admin.data
         )
-        novo_usuario.set_senha(form.senha.data)  # Usa a função para hash de senha
+        # sempre gere o hash pela função
+        novo_usuario.set_senha(form.senha.data)
         db.session.add(novo_usuario)
         db.session.commit()
         flash('Usuário cadastrado com sucesso!', 'success')
         return redirect(url_for('main.index'))
     return render_template('cadastrar_usuario.html', form=form)
 
+
 @bp.route('/excluir-termometro/<int:id>', methods=['POST'])
 @admin_requerido
 def excluir_termometro(id):
     termometro = Termometro.query.get_or_404(id)
 
-    # Também apagar todas as verificações ligadas ao termômetro antes de apagar o termômetro
+    # Apaga as verificações ligadas ao termômetro
     for verificacao in termometro.verificacoes:
         db.session.delete(verificacao)
 
@@ -266,9 +268,6 @@ def excluir_termometro(id):
     return redirect(url_for('main.index'))
 
 
-from datetime import datetime
-import pytz  # Certifique-se que está no topo do arquivo
-
 from wtforms.validators import DataRequired
 
 @bp.route('/verificar/<int:id>', methods=['GET', 'POST'])
@@ -277,18 +276,18 @@ def verificar(id):
     termometro = Termometro.query.get_or_404(id)
     form = VerificacaoForm()
 
-    # Pré‐popula o responsável para usuários comuns
+    # Pré-popula o responsável para usuários comuns
     if not session.get('is_admin'):
         form.responsavel.data = session.get('usuario_nome')
 
-    # Define timezone de SP
+    # Timezone SP e intervalo do dia
     sp_tz = pytz.timezone('America/Sao_Paulo')
     hoje_sp = datetime.now(sp_tz).date()
     inicio_local = sp_tz.localize(datetime.combine(hoje_sp, time.min))
     inicio_utc = inicio_local.astimezone(pytz.utc)
     fim_utc = (inicio_local + timedelta(days=1)).astimezone(pytz.utc)
 
-    # Verifica se já existe uma verificação para hoje
+    # Verifica se já existe verificação hoje
     primeira = Verificacao.query.filter(
         Verificacao.termometro_id == id,
         Verificacao.data_hora >= inicio_utc,
@@ -297,15 +296,15 @@ def verificar(id):
 
     exigir_maxmin = bool(primeira)
 
-    # Pré-preenche temperatura e observação caso esteja atualizando
-    if request.method == 'GET' and exigir_maxmin:
+    # Pré-preenche temperatura/observação caso atualizando a segunda leitura
+    if request.method == 'GET' and exigir_maxmin and primeira:
         form.temperatura_atual.data = primeira.temperatura_atual
         form.observacao.data = primeira.observacao
         form.observacao_personalizada.data = (
             primeira.observacao if primeira.observacao not in dict(form.observacao.choices).keys() else ""
         )
 
-    # Primeira leitura do dia
+    # Primeira leitura do dia (cria registro)
     if request.method == 'POST' and not exigir_maxmin:
         atual = form.temperatura_atual.data
         max_temp = form.temperatura_max.data
@@ -314,7 +313,6 @@ def verificar(id):
         if atual is None:
             flash('Preencha a temperatura atual.', 'danger')
         else:
-            # Lida com observação personalizada
             observacao_final = form.observacao.data
             if observacao_final == "I" and form.observacao_personalizada.data:
                 observacao_final = form.observacao_personalizada.data
@@ -333,9 +331,8 @@ def verificar(id):
             flash('Leitura registrada com sucesso!', 'success')
             return redirect(url_for('main.historico', id=id))
 
-    # Segunda leitura do dia: atualização
-    if form.validate_on_submit() and exigir_maxmin:
-        # Lida com observação personalizada
+    # Segunda leitura do dia (atualiza registro com máx/mín)
+    if form.validate_on_submit() and exigir_maxmin and primeira:
         observacao_final = form.observacao.data
         if observacao_final == "I" and form.observacao_personalizada.data:
             observacao_final = form.observacao_personalizada.data
@@ -348,7 +345,7 @@ def verificar(id):
         return redirect(url_for('main.historico', id=id))
 
     # Em caso de erro no POST final
-    if request.method == 'POST' and exigir_maxmin:
+    if request.method == 'POST' and exigir_maxmin and form.errors:
         flash(f'Erros no formulário: {form.errors}', 'danger')
 
     return render_template(
@@ -359,32 +356,11 @@ def verificar(id):
     )
 
 
-
-    # ——— LEITURA FINAL: atualiza o registro original ———
-    if form.validate_on_submit() and exigira_maxmin:
-        primeira.temperatura_max = form.temperatura_max.data
-        primeira.temperatura_min = form.temperatura_min.data
-        primeira.observacao      = form.observacao.data
-        # NÃO alteramos primeira.data_hora, preservando o horário original
-        db.session.commit()
-        flash('Leitura final do dia atualizada com Máx/Mín.', 'success')
-        return redirect(url_for('main.historico', id=id))
-
-    # Em caso de erro no POST final
-    if request.method == 'POST' and exigira_maxmin:
-        flash(f'Erros no formulário: {form.errors}', 'danger')
-
-    return render_template(
-        'verificar_temperatura.html',
-        form=form,
-        termometro=termometro,
-        exigir_maxmin=exigira_maxmin
-    )
-
 @bp.route('/listar_admins')
 def listar_admins():
     admins = Usuario.query.filter_by(is_admin=True).all()
     return '<br>'.join([f"Admin: {admin.username}" for admin in admins])
+
 
 @bp.route('/editar-termometro/<int:id>', methods=['GET', 'POST'])
 @admin_requerido
@@ -427,12 +403,11 @@ def exportar_planilha_geral():
 
             df = pd.DataFrame(dados)
             aba = termometro.identificacao or f"Termometro_{termometro.id}"
-            df.to_excel(writer, sheet_name=aba[:31], index=False)  # Excel limita nome da aba a 31 caracteres
+            df.to_excel(writer, sheet_name=aba[:31], index=False)  # Excel limita o nome da aba a 31 chars
 
     output.seek(0)
     return send_file(output, download_name='dados_termometros.xlsx', as_attachment=True)
 
-import qrcode
 
 @bp.route('/qr/<int:id>')
 @login_requerido
@@ -445,4 +420,3 @@ def gerar_qr(id):
     buffer.seek(0)
 
     return send_file(buffer, mimetype='image/png', download_name=f'termometro_{id}_qr.png')
-
