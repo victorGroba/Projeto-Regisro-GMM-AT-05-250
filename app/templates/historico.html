@@ -4,9 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle de Temperatura</title>
+    <title>Controle de Temperatura - Carta Controle</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         body {
@@ -17,11 +18,12 @@
         }
 
         .container {
-            max-width: 1024px;
+            max-width: 1200px; /* Aumentei um pouco para caber a tabela grande */
             margin: auto;
             padding: 10px;
         }
 
+        /* Cabeçalho e Título */
         .title-header {
             display: flex;
             border: 1px solid #000;
@@ -51,23 +53,30 @@
             font-size: 11px;
         }
 
-        table {
+        /* Tabela Carta Controle */
+        table.tabela-modelo {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
+            font-size: 10px; /* Fonte menor para caber tudo */
         }
 
-        th,
-        td {
+        table.tabela-modelo th,
+        table.tabela-modelo td {
             border: 1px solid black;
-            padding: 2px;
+            padding: 4px;
             text-align: center;
         }
 
-        th {
-            background-color: #f2f2f2;
+        table.tabela-modelo th {
+            background-color: #dceeff; /* Azulzinho claro para destaque */
             font-weight: bold;
+            vertical-align: middle;
         }
+
+        /* Cores das colunas estatísticas para facilitar leitura */
+        .col-nc { background-color: #ffe6e6; } /* Vermelho claro */
+        .col-na { background-color: #fff5cc; } /* Amarelo claro */
+        .col-s  { background-color: #e6fffa; } /* Verde claro */
 
         .legend-list {
             list-style: none;
@@ -77,16 +86,34 @@
 
         .main-content {
             display: flex;
+            flex-direction: column; /* Mudei para coluna para o gráfico ficar em cima */
             gap: 20px;
         }
 
-        .table-container {
+        .chart-container {
+            width: 100%;
+            height: 350px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 15px;
+            background: #fff;
+        }
+
+        .data-section {
+            display: flex;
+            gap: 20px;
+        }
+
+        .table-wrapper {
             flex: 1;
+            overflow-x: auto;
         }
 
         .info-side {
-            width: 250px;
+            width: 220px;
             flex-shrink: 0;
+            border-left: 1px solid #ddd;
+            padding-left: 15px;
         }
 
         .bloco-impressao {
@@ -94,24 +121,36 @@
             padding: 10px;
             margin-top: 10px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background: white;
         }
 
         .footer {
             margin-top: 10px;
-        }
-
-        .footer div {
-            margin-bottom: 5px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
         }
 
         @media print {
             .no-print {
                 display: none !important;
             }
-
             .container {
+                max-width: 100%;
                 border: none;
                 box-shadow: none;
+                padding: 0;
+            }
+            .chart-container {
+                height: 300px; /* Ajuste para impressão */
+            }
+            body {
+                margin: 0;
+                font-size: 10px;
+            }
+            /* Forçar impressão de cores de fundo */
+            table th, .col-nc, .col-na, .col-s {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
         }
     </style>
@@ -119,60 +158,56 @@
 
 <body>
 
-    <!-- Navegação entre meses -->
     <ul class="nav nav-tabs no-print mb-3" id="mesTabs" role="tablist">
-        {% for mes, _ in historico_mensal.items() %}
+        {% for mes_ano, dados in historico_mensal.items() %}
         <li class="nav-item" role="presentation">
             <button class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ loop.index }}" data-bs-toggle="tab"
-                data-bs-target="#mes-{{ loop.index }}" type="button" role="tab">
-                {{ mes }}
+                data-bs-target="#mes-{{ loop.index }}" type="button" role="tab" onclick="carregarGrafico('{{ loop.index }}', '{{ termometro.id }}', '{{ mes_ano|replace('/', '-') }}')">
+                {{ mes_ano }}
             </button>
         </li>
         {% endfor %}
     </ul>
 
-    <!-- Conteúdo das abas -->
     <div class="tab-content">
-        {% for mes_ano, verificacoes_mes in historico_mensal.items() %}
+        {% for mes_ano, dados in historico_mensal.items() %}
+        {% set media = dados.media %}
+        {% set desvio = dados.desvio %}
+        {% set lista = dados.lista %}
+
         <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="mes-{{ loop.index }}" role="tabpanel">
             <div class="container bloco-impressao">
 
-                <!-- Botões -->
-                <div class="no-print mb-2">
-                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-sm">← Voltar</a>
-                    <button onclick="imprimirBloco()" class="btn btn-success btn-sm">🖨 Imprimir este mês</button>
-
-
-
+                <div class="no-print mb-2 d-flex justify-content-between">
+                    <div>
+                        <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-sm">← Voltar</a>
+                    </div>
+                    <div>
+                        <button onclick="window.print()" class="btn btn-success btn-sm">🖨 Imprimir Carta Controle</button>
+                    </div>
                 </div>
 
-                <!-- Cabeçalho -->
-                <div class="header d-flex justify-content-between align-items-center">
+                <div class="header d-flex justify-content-between align-items-center mb-2">
                     <div class="d-flex align-items-center">
                         <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo"
                             style="height:40px;margin-right:10px;">
-
                     </div>
-                    <div style="color:#0047AB; text-align: right; font-weight:bold;">SISTEMA DA GESTÃO DE QUALIDADE
+                    <div style="color:#0047AB; text-align: right; font-weight:bold;">
+                        SISTEMA DA GESTÃO DE QUALIDADE
                     </div>
                 </div>
 
                 <div class="title-header">
                     <div>
                         <h3 style="text-align: left;">Título</h3>
-                        <p style="color: #0047AB;">CONTROLE DE TEMPERATURA</p>
+                        <p style="color: #0047AB; font-weight: bold;">CARTA CONTROLE DE TEMPERATURA</p>
                     </div>
                     <div>
                         <h3 style="text-align: left;">Identificação</h3>
-                        <p style="color: #0047AB;">MM-05-AT-250</p>
-                    </div>
+                        <p style="color: #0047AB;">MM-05-AT-483</p> </div>
                     <div>
                         <h3 style="text-align: left;">Revisão</h3>
                         <p style="color: #0047AB;">03</p>
-                    </div>
-                    <div>
-                        <h3 style="text-align: left;">Aprovado em</h3>
-                        <p style="color: #0047AB;">25/09/2023</p>
                     </div>
                     <div>
                         <h3 style="text-align: left;">Pág</h3>
@@ -180,118 +215,216 @@
                     </div>
                 </div>
 
-                <!-- Conteúdo principal -->
                 <div class="main-content">
-                    <div class="table-container">
-                        <h5 class="mt-2" style="color: #0047AB;">Histórico do mês: {{ mes_ano }}</h5>
-                        <table class="tabela-modelo">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Hora</th>
-                                    <th>Responsável</th>
-                                    <th>T. Atual (°C)</th>
-                                    <th>T. Máx (°C)</th>
-                                    <th>T. Mín (°C)</th>
-                                    <th>Observação</th>
-                                    {% if session.get('is_admin') %}
-                                    <th>Ações</th>
-                                    {% endif %}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for v in verificacoes_mes %}
-                                <tr>
-                                    <td>{{ v.get_data_hora_sp().strftime('%d/%m/%Y') }}</td>
-                                    <td>{{ v.get_data_hora_sp().strftime('%H:%M') }}</td>
-                                    <td>{{ v.responsavel }}</td>
-                                    <td>{{ v.temperatura_atual }}</td>
-                                    <td>{{ v.temperatura_max if v.temperatura_max is not none else '' }}</td>
-                                    <td>{{ v.temperatura_min if v.temperatura_min is not none else '' }}</td>
-                                    <td>{{ v.observacao }}</td>
-                                    {% if session.get('is_admin') %}
-                                    <td>
-                                        <form method="POST" action="{{ url_for('main.excluir_verificacao', id=v.id) }}"
-                                            style="display:inline;">
-                                            <button type="submit" class="btn btn-sm btn-danger"
-                                                onclick="return confirm('Deseja excluir esta verificação?')">Excluir</button>
-                                        </form>
-                                    </td>
-                                    {% endif %}
-                                </tr>
-                                {% endfor %}
-
-                            </tbody>
-
-                        </table>
+                    
+                    <div class="chart-container">
+                        <canvas id="chart-{{ loop.index }}"></canvas>
+                        <input type="hidden" id="loaded-{{ loop.index }}" value="false">
                     </div>
 
-                    <!-- Lateral -->
-                    <div class="info-side">
-                        <div class="mb-2"><strong>Setor:</strong> {{ termometro.setor }}</div>
-                        <div class="mb-2"><strong>Mês/Ano:</strong> {{ mes_ano }}</div>
-                        <div class="mb-2"><strong>Equipamento:</strong> {{ termometro.equipamento }}</div>
-                        <div class="mb-2"><strong>Especificação:</strong> {{ termometro.especificacao }}</div>
+                    <div class="data-section">
+                        
+                        <div class="table-wrapper">
+                            <h5 style="color: #0047AB; font-size: 12px; margin-bottom: 5px;">
+                                Histórico: {{ mes_ano }} | Média: {{ "%.2f"|format(media) }} | Desvio Padrão: {{ "%.4f"|format(desvio) }}
+                            </h5>
+                            
+                            <table class="tabela-modelo">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Data</th>
+                                        <th>Resultado (°C)</th>
+                                        <th>Média</th>
+                                        <th>Desvio Padrão</th>
+                                        
+                                        <th class="col-nc">NC Inf<br>(-3S)</th>
+                                        <th class="col-na">NA Inf<br>(-2S)</th>
+                                        <th class="col-s">(-1S)</th>
+                                        
+                                        <th class="col-s">(+1S)</th>
+                                        <th class="col-na">NA Sup<br>(+2S)</th>
+                                        <th class="col-nc">NC Sup<br>(+3S)</th>
+                                        
+                                        <th>Ação Corretiva / Obs</th>
+                                        <th>Analista</th>
+                                        
+                                        {% if session.get('is_admin') %}
+                                        <th class="no-print">Ações</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for v in lista %}
+                                    <tr>
+                                        <td>{{ loop.index }}</td>
+                                        <td>{{ v.get_data_hora_sp().strftime('%d/%m/%Y') }}</td>
+                                        
+                                        <td style="font-weight: bold;">
+                                            {{ v.temperatura_atual }}
+                                        </td>
 
-                        <hr>
+                                        <td>{{ "%.2f"|format(media) }}</td>
+                                        <td>{{ "%.3f"|format(desvio) }}</td>
 
-                        <div class="mb-2"><strong>Identificação do Termômetro</strong></div>
-                        <div class="mb-2">Nº em uso: {{ termometro.identificacao }}</div>
-                        <div class="mb-2">Nº padrão: {{ termometro.padrao_identificacao }}</div>
+                                        <td class="col-nc">{{ "%.2f"|format(media - 3*desvio) }}</td>
+                                        <td class="col-na">{{ "%.2f"|format(media - 2*desvio) }}</td>
+                                        <td class="col-s">{{ "%.2f"|format(media - 1*desvio) }}</td>
+                                        
+                                        <td class="col-s">{{ "%.2f"|format(media + 1*desvio) }}</td>
+                                        <td class="col-na">{{ "%.2f"|format(media + 2*desvio) }}</td>
+                                        <td class="col-nc">{{ "%.2f"|format(media + 3*desvio) }}</td>
 
-                        <hr>
+                                        <td style="text-align: left; font-size: 9px;">{{ v.observacao or '' }}</td>
+                                        
+                                        <td>{{ v.responsavel }}</td>
 
-                        <div class="mb-2"><strong>Checagem intermediária</strong></div>
-                        <div class="small">(Trimestral/Anual BMWW 502020 4A)</div>
-                        <div class="mb-2">Controle realizado em planilha</div>
-                        <div class="mb-2">NOME: Verificação da Boa execução dos  Termômetro e termostatus
-</div>
-                        <div class="mb-2">LOCAL: \Área Técnica\Controles do Setor - MEIOS DE CULTURA\Controle de Produção</div>
+                                        {% if session.get('is_admin') %}
+                                        <td class="no-print">
+                                            <form method="POST" action="{{ url_for('main.excluir_verificacao', id=v.id) }}" style="display:inline;">
+                                                <button type="submit" class="btn btn-danger btn-sm" style="padding: 0px 4px; font-size: 9px;" onclick="return confirm('Excluir?')">X</button>
+                                            </form>
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                    
+                                    {% if lista|length < 10 %}
+                                        {% for i in range(10 - lista|length) %}
+                                        <tr>
+                                            <td>-</td><td></td><td></td><td></td><td></td>
+                                            <td class="col-nc"></td><td class="col-na"></td><td class="col-s"></td>
+                                            <td class="col-s"></td><td class="col-na"></td><td class="col-nc"></td>
+                                            <td></td><td></td>
+                                            {% if session.get('is_admin') %}<td class="no-print"></td>{% endif %}
+                                        </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
 
-                        <hr>
-
-                        <div class="legend-section">
-                            <div class="legend-title"><strong>Legenda</strong></div>
-                            <ul class="legend-list">
-                                <li>A. Descongelamento/Limpeza</li>
-                                <li>B. Verificação Vedação</li>
-                                <li>C. Verificação Validade de Insumos</li>
-                                <li>D. Solicitação Manutenção Corretiva</li>
-                                <li>E. Interrupção Energia Elétrica</li>
-                                <li>F. Regulagem do termostato</li>
-                                <li>G. Porta muito tempo aberta</li>
-                                <li>H. Limpeza após contaminação</li>
-                                <li>I. _________________________</li>
-                            </ul>
+                        <div class="info-side">
+                            <div class="mb-2"><strong>Setor:</strong> {{ termometro.setor }}</div>
+                            <div class="mb-2"><strong>Equipamento:</strong><br> {{ termometro.equipamento }}</div>
+                            <div class="mb-2"><strong>Especificação:</strong><br> {{ termometro.especificacao }}</div>
+                            <hr>
+                            <div class="mb-2"><strong>Termômetro:</strong> {{ termometro.identificacao }}</div>
+                            <div class="mb-2"><strong>Padrão:</strong> {{ termometro.padrao_identificacao }}</div>
+                            <hr>
+                            <div class="legend-section">
+                                <div class="legend-title"><strong>Legenda do Gráfico:</strong></div>
+                                <ul class="legend-list">
+                                    <li><span style="color:black">●</span> Resultado</li>
+                                    <li><span style="color:orange">---</span> Média</li>
+                                    <li><span style="color:red">―</span> Limite Controle (3S)</li>
+                                    <li><span style="color:#FFD700">―</span> Limite Alerta (2S)</li>
+                                    <li><span style="color:green">―</span> 1 Sigma (1S)</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Rodapé -->
                 <div class="footer">
-                    <div>Erro Padrão: _____°C &nbsp;&nbsp;&nbsp;&nbsp; Incerteza Padrão: _____°C</div>
-                    <div>Erro T. uso: _____°C &nbsp;&nbsp;&nbsp;&nbsp; Incerteza T. uso: _____°C</div>
-                    <div>Conferido por: ___________________ &nbsp;&nbsp;&nbsp;&nbsp; Data: ____/____/____</div>
-                    <div class="small mt-2">
-                        (*) Verificação com base na periodicidade de calibração<br>
-                        Obs.: Descarte os dispositivos de detecção de temperatura que difiram em 1°C do dispositivo de
-                        referência
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <strong>Análise Crítica:</strong><br>
+                            (&nbsp;&nbsp;) Aprovado<br>
+                            (&nbsp;&nbsp;) Reprovado
+                        </div>
+                        <div>
+                            <strong>Visto Gestor / Data:</strong><br>
+                            __________________________  ___/___/___
+                        </div>
+                    </div>
+                    <div class="small mt-2" style="font-style: italic;">
+                        * Nota: O desvio padrão é calculado com base nas amostras do mês corrente.
                     </div>
                 </div>
+
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Scripts -->
     <script>
-        function imprimirBloco() {
-            window.print();
+        // Função chamada ao clicar na aba ou ao carregar a página
+        function carregarGrafico(index, termoId, mesAno) {
+            const canvasId = `chart-${index}`;
+            const loadedId = `loaded-${index}`;
+            const isLoaded = document.getElementById(loadedId).value;
+
+            // Se já carregou, não faz nada
+            if (isLoaded === "true") return;
+
+            // Chama a rota do backend que devolve o JSON pronto para o Chart.js
+            // Obs: A rota no routes.py deve ser algo como /dados_carta_controle/<id>/<mes_ano>
+            // O replace de barras por traços no HTML ajuda a passar na URL
+            fetch(`/dados_carta_controle/${termoId}/${mesAno}`)
+                .then(response => response.json())
+                .then(dados => {
+                    const ctx = document.getElementById(canvasId).getContext('2d');
+                    
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dados.labels,
+                            datasets: dados.datasets.map(ds => ({
+                                ...ds,
+                                fill: false,
+                                pointRadius: 3,
+                                pointHoverRadius: 5
+                            }))
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                intersect: false,
+                                mode: 'index',
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: { boxWidth: 12, font: { size: 10 } }
+                                },
+                                title: {
+                                    display: true,
+                                    text: `Carta Controle - ${mesAno}`
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    title: { display: true, text: 'Temperatura (°C)' },
+                                    ticks: { stepSize: 0.5 } // Ajuda na visualização
+                                }
+                            }
+                        }
+                    });
+
+                    // Marca como carregado para não chamar a API de novo
+                    document.getElementById(loadedId).value = "true";
+                })
+                .catch(err => console.error("Erro ao carregar gráfico:", err));
         }
+
+        // Carregar o gráfico da primeira aba (ativa) automaticamente ao abrir a página
+        document.addEventListener("DOMContentLoaded", function() {
+            // Pega o botão da aba ativa e dispara o clique simulado ou chama a função direto
+            const activeTab = document.querySelector('.nav-link.active');
+            if(activeTab) {
+                // Extrai os parametros do onclick
+                // Ex: onclick="carregarGrafico('1', '5', '08-2025')"
+                const onclickText = activeTab.getAttribute('onclick');
+                // Pequeno hack para executar a função extraindo os argumentos
+                // O ideal é chamar a função diretamente se você tiver os dados, 
+                // mas como estão no loop do jinja, simular o click funciona bem.
+                activeTab.click();
+            }
+        });
     </script>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 </body>
-
 </html>

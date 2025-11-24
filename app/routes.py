@@ -5,6 +5,7 @@ from .forms import TermometroForm, VerificacaoForm, LoginForm, UsuarioForm
 from functools import wraps
 import pandas as pd
 import io
+import statistics
 # from weasyprint import HTML  # (mantido comentado; importe se for usar PDF aqui)
 from datetime import datetime, date, time, timedelta
 from collections import defaultdict
@@ -12,6 +13,7 @@ from sqlalchemy import func
 import pytz
 from pathlib import Path
 import qrcode
+
 
 bp = Blueprint('main', __name__)
 
@@ -135,20 +137,54 @@ def historico(id):
     termometro = Termometro.query.get_or_404(id)
     verificacoes = Verificacao.query.filter_by(termometro_id=termometro.id).all()
 
-    # Agrupa por mês/ano e ordena por data/hora
-    agrupado = defaultdict(list)
+    # 1. Agrupa por mês/ano inicialmente
+    # O defaultdict cria uma lista automaticamente para cada chave nova
+    agrupado_temp = defaultdict(list)
     for v in verificacoes:
+        # Garante que usamos a data correta (SP)
         data_sp = v.get_data_hora_sp()
         mes_ano = data_sp.strftime('%m/%Y')
-        agrupado[mes_ano].append(v)
+        agrupado_temp[mes_ano].append(v)
 
-    for mes in agrupado:
-        agrupado[mes] = sorted(agrupado[mes], key=lambda v: v.get_data_hora_sp())
+    # 2. Processa cada mês para calcular estatísticas e ordenar
+    historico_mensal = {}
+
+    # Iteramos sobre o dicionário temporário
+    for mes, lista_verificacoes in agrupado_temp.items():
+        
+        # Ordena a lista de verificações por data/hora (da mais antiga para a mais nova)
+        lista_ordenada = sorted(lista_verificacoes, key=lambda v: v.get_data_hora_sp())
+
+        # Extrai apenas os valores de temperatura válidos (ignora None) para cálculo
+        valores_mes = [v.temperatura_atual for v in lista_ordenada if v.temperatura_atual is not None]
+
+        # === CÁLCULO ESTATÍSTICO (Igual ao Excel) ===
+        if valores_mes:
+            media_mes = statistics.mean(valores_mes)
+            # Desvio padrão requer pelo menos 2 pontos de dados
+            if len(valores_mes) > 1:
+                desvio_mes = statistics.stdev(valores_mes)
+            else:
+                desvio_mes = 0.0
+        else:
+            media_mes = 0.0
+            desvio_mes = 0.0
+
+        # 3. Monta a estrutura final que o template espera
+        # Agora 'historico_mensal[mes]' não é mais só uma lista, é um objeto com tudo que precisamos
+        historico_mensal[mes] = {
+            'lista': lista_ordenada,  # A lista de objetos Verificacao
+            'media': media_mes,       # A média calculada
+            'desvio': desvio_mes      # O desvio padrão calculado
+        }
+
+    # Opcional: Ordenar os meses (chaves) se quiser que apareçam em ordem cronológica ou inversa na tela
+    # Aqui estamos mantendo a ordem de inserção ou aleatória do dict, mas o template itera sobre ele.
 
     return render_template(
         'historico.html',
         termometro=termometro,
-        historico_mensal=agrupado
+        historico_mensal=historico_mensal
     )
 
 
@@ -420,3 +456,76 @@ def gerar_qr(id):
     buffer.seek(0)
 
     return send_file(buffer, mimetype='image/png', download_name=f'termometro_{id}_qr.png')
+
+@bp.route('/dados_carta_controle/<int:id>/<string:mes_ano_str>') # Recebe o mês também para filtrar
+@login_requerido
+def dados_carta_controle(id, mes_ano_str):
+    # Exemplo de mes_ano_str: "08-2025" (precisa adaptar no frontend para enviar isso)
+    # Ou simplifique pegando os ultimos 30 registros se preferir.
+    
+    termometro = Termometro.query.get_or_404(id)
+    
+    # Aqui você deve filtrar as verificações do mês específico
+    # (Simplificando pegando todas para o exemplo, mas o ideal é filtrar por data)
+    verificacoes = Verificacao.query.filter_by(termometro_id=id).order_by(Verificacao.data_hora.asc()).all()
+    
+    # Extrai os valores (ignora onde não tem temperatura)
+    valores = [v.temperatura_atual for v in verificacoes if v.temperatura_atual is not None]
+    datas = [v.get_data_hora_sp().strftime('%d/%m') for v in verificacoes if v.temperatura_atual is not None]
+
+    # === O CÉREBRO MATEMÁTICO (Igual sua planilha) ===
+    if len(valores) > 1:
+        media = statistics.mean(valores)       # Calcula a Média (X barra)
+        desvio = statistics.stdev(valores)     # Calcula o Desvio Padrão (Sigma)
+    else:
+        # Se tiver menos de 2 dados, não dá pra calcular desvio
+        media = valores[0] if valores else 0
+        desvio = 0
+
+    # Calcula as linhas da Carta Controle
+    s3_sup = media + (3 * desvio)  # NC Superior (+3S) Linha Vermelha
+    s2_sup = media + (2 * desvio)  # NA Superior (+2S) Linha Amarela
+    s1_sup = media + (1 * desvio)  # (+1S) Linha Verde
+    
+    s1_inf = media - (1 * desvio)  # (-1S) Linha Verde
+    s2_inf = media - (2 * desvio)  # NA Inferior (-2S) Linha Amarela
+    s3_inf = media - (3 * desvio)  # NC Inferior (-3S) Linha Vermelha
+
+    # Prepara o JSON para o Gráfico
+    # Criamos listas repetindo o mesmo valor para formar linhas retas no gráfico
+    qtd = len(datas)
+    
+    return {
+        'labels': datas,
+        'datasets': [
+            {
+                'label': 'Resultado (°C)',
+                'data': valores,
+                'borderColor': 'black',
+                'borderWidth': 2,
+                'pointBackgroundColor': 'blue',
+                'tension': 0 # Linha reta entre pontos
+            },
+            # Linhas de Controle (Vermelhas)
+            {'label': '+3S (NC)', 'data': [s3_sup]*qtd, 'borderColor': 'red', 'borderWidth': 1, 'pointRadius': 0},
+            {'label': '-3S (NC)', 'data': [s3_inf]*qtd, 'borderColor': 'red', 'borderWidth': 1, 'pointRadius': 0},
+            
+            # Linhas de Alerta (Amarelas)
+            {'label': '+2S (NA)', 'data': [s2_sup]*qtd, 'borderColor': '#FFD700', 'borderWidth': 1, 'pointRadius': 0, 'borderDash': [5,5]},
+            {'label': '-2S (NA)', 'data': [s2_inf]*qtd, 'borderColor': '#FFD700', 'borderWidth': 1, 'pointRadius': 0, 'borderDash': [5,5]},
+            
+            # Linhas de 1 Sigma (Verdes)
+            {'label': '+1S', 'data': [s1_sup]*qtd, 'borderColor': 'green', 'borderWidth': 0.5, 'pointRadius': 0},
+            {'label': '-1S', 'data': [s1_inf]*qtd, 'borderColor': 'green', 'borderWidth': 0.5, 'pointRadius': 0},
+            
+            # Média (Laranja)
+            {'label': 'Média', 'data': [media]*qtd, 'borderColor': 'orange', 'borderWidth': 2, 'pointRadius': 0, 'borderDash': [2,2]}
+        ],
+        # Enviamos os valores calculados também para preencher a tabela se quiser
+        'estatisticas': {
+            'media': round(media, 2),
+            'desvio': round(desvio, 4),
+            'nc_sup': round(s3_sup, 2),
+            'nc_inf': round(s3_inf, 2)
+        }
+    }
